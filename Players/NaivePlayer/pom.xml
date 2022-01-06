@@ -20,6 +20,8 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>BoardGame</artifactId>
             <version>${project.version}</version>
+            <scope>system</scope>
+            <systemPath>${basedir}/../../BoardGame/target/BoardGame-2.0-SNAPSHOT.jar</systemPath>
         </dependency>
     </dependencies>
     <build>
