@@ -9,70 +9,116 @@ import put.ai.games.game.Move;
 import put.ai.games.game.Player;
 import put.ai.games.game.moves.MoveMove;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 import java.awt.Point;
+
+class MyMove {
+    Move move;
+    Integer value;
+
+    MyMove(Move move, Integer value) {
+        this.move = move;
+        this.value = value;
+    }
+}
 
 public class NicePlayer extends Player {
 
     private Color myColor;
     private Color enemyColor;
     private int boardSize;
+    private long timeStart = 0;
+    private long timeStop;
+    static Random random = new Random(0xCAFFE);
+    private int depthLimit = 20;
 
     @Override
     public String getName() {
         return "Gabriel Wachowski 145275 Mateusz Świercz 145225";
     }
 
+    boolean hasTimeEnded() {
+        return System.currentTimeMillis() - timeStart >= timeStop - 500;
+    }
+
+    MyMove getRandomMove(Board b, Color color) {
+        List<Move> moves = b.getMovesFor(color);
+        Move move = moves.get(random.nextInt(moves.size()));
+        return new MyMove(move, getMoveValue(b, color));
+    }
+
+    Integer getMoveValue(Board b, Color color) {
+        Integer value = 0;
+        if (b.getWinner(color) == color) return 999999;
+        for (int i = 0; i < boardSize; i++) {
+            for (int j = 0; j < boardSize; j++) {
+               if (b.getState(i, j) == color) value++;
+               if (b.getState(i, j) == getOpponent(color)) value--;
+            }
+        }
+        return value;
+    }
+
+    MyMove negamax(Board b, Color color, int depth, int alpha, int beta) {
+        Color nextColor = getOpponent(color);
+        List<Move> nextMoves = b.getMovesFor(color);
+        Collections.shuffle(nextMoves);
+        if (depth == 0 || nextMoves.isEmpty() || hasTimeEnded())
+            return new MyMove(null, getMoveValue(b, color));
+
+        MyMove bestMove = null;
+        for (Move move : nextMoves) {
+            b.doMove(move);
+            MyMove nextMove = negamax(b, nextColor, depth - 1, -beta, -alpha);
+            b.undoMove(move);
+            if (nextMove.value == null) continue;
+            nextMove.value *= -1;
+            nextMove.move = move;
+            if (bestMove == null || nextMove.value > bestMove.value) bestMove = nextMove;
+            alpha = Math.max(bestMove.value, alpha);
+            if (bestMove.value >= beta) return bestMove;
+        }
+
+        return bestMove;
+    }
+
+    MyMove getBestMove(Board b, Color color) {
+        MyMove bestMove = getRandomMove(b, color);
+        for (int depth = 1; depth <= this.depthLimit && !hasTimeEnded(); depth++) {
+            MyMove candidateMove = negamax(b, color, depth, 0, 999999);
+            if (candidateMove.value > bestMove.value) bestMove = candidateMove;
+        }
+
+        System.out.println("("+bestMove.value+")\t"+bestMove.move);
+        return bestMove;
+    }
+
     private void assignColors() {
-        // dostepne kolory: PLAYER1 or PLAYER2
-        this.myColor = getColor();                  // kolor naszego gracza (gracz "max")
-        this.enemyColor = getOpponent(getColor());  // kolor przeciwnika (gracz "min")
+        this.myColor = getColor();
+        this.enemyColor = getOpponent(getColor());
     }
 
     private void assignBoardSize(Board board) {
-        this.boardSize = board.getSize();           // rozmiar planszy
+        this.boardSize = board.getSize();
     }
 
-    private List<Point> getEnemyPosition(Board b) {
-        // pobieram ruchy przeciwnika, biore z nich pozycje startowa i zapisuje w liście punktów
-        return b.getMovesFor(enemyColor)
-                .stream()
-                .map(move -> (MoveMove) move )
-                .map(moveMove -> new Point(moveMove.getSrcX(), moveMove.getSrcY()))
-                .collect(Collectors.toList());
+    private void assignTimeStop() {
+        this.timeStop = getTime();
     }
 
     @Override
     public Move nextMove(Board b) {
-        // dla planszy 8x8:
-        // player 1, pomaranczowy, lewy gorny rog (0,0) - cel prawy dolny (7,7)
-        // player 2, niebieski, prawy dolny rog (7,7) - cel lewy gorny (0,0)
+        this.assignBoardSize(b);
+        this.assignColors();
+        this.assignTimeStop();
 
-        this.assignBoardSize(b);    // odczytujemy i zapisujemy rozmiar planszy
-        this.assignColors();        // odczytujemy kolor naszego gracza
-
-        // odczytujemy dostene dla naszego gracza ruchy,
-        // interfejs Move (getMovesFor()) jest niewystarczajacy,
-        // rzutujemy go na inny posiadający wiecej danych (MoveMove)
         List<MoveMove> myMoveMoves = b.getMovesFor(myColor).stream().map(move -> (MoveMove) move).collect(Collectors.toList());
 
-        // pobieramy liste z pozycjami przeciwnika
-        List<Point> enemyPosition = getEnemyPosition(b);
+        MyMove nextMove = getBestMove(b, this.myColor);
 
-        // w razie nie znalezienia odpowiedniego ruchu bierzemy pierwszy z brzegu
-        Move nextMove = myMoveMoves.get(0);
-
-        // sprawdzamy pokolei ruchy, jezeli koncowa pozycja jest pozycja przeciwnika
-        // (nastepuje przesuniecie) to wykonujemy ten ruch
-        for (MoveMove move: myMoveMoves) {
-            if (enemyPosition.stream().anyMatch(point -> point.x == move.getDstX() && point.y == move.getDstY())) {
-                System.out.println("Found move "+move.getDstX()+" "+move.getDstY());
-                nextMove = move;
-                break;
-            }
-        }
-
-        return nextMove;
+        return nextMove.move;
     }
 }
