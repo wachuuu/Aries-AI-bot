@@ -13,7 +13,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
-import java.awt.Point;
 
 class MyMove {
     Move move;
@@ -30,10 +29,10 @@ public class NicePlayer extends Player {
     private Color myColor;
     private Color enemyColor;
     private int boardSize;
-    private long timeStart = 0;
+    private long timeStart;
     private long timeStop;
     static Random random = new Random(0xCAFFE);
-    private int depthLimit = 20;
+    private int depthLimit = 3;
 
     @Override
     public String getName() {
@@ -51,12 +50,29 @@ public class NicePlayer extends Player {
     }
 
     Integer getMoveValue(Board b, Color color) {
-        Integer value = 0;
-        if (b.getWinner(color) == color) return 999999;
-        for (int i = 0; i < boardSize; i++) {
-            for (int j = 0; j < boardSize; j++) {
-               if (b.getState(i, j) == color) value++;
-               if (b.getState(i, j) == getOpponent(color)) value--;
+        int value = 0;
+        if (b.getWinner(color) == color) return Integer.MAX_VALUE;
+
+        for (int i = 1; i <= boardSize; i++) {
+            for (int j = 1; j <= boardSize; j++) {
+               if (b.getState(i-1, j-1) == color) {
+                   value += 1000;
+                   if (color == Color.PLAYER1) {
+                       value += i * j;
+                   }
+                   if (color == Color.PLAYER2) {
+                       value += (this.boardSize + 1 - i) * (this.boardSize + 1 - j);
+                   }
+               }
+               if (b.getState(i-1, j-1) == getOpponent(color)) {
+                   value -= 1000;
+                   if (color == Color.PLAYER1) {
+                       value -= (this.boardSize + 1 - i) * (this.boardSize + 1 - j);
+                   }
+                   if (color == Color.PLAYER2) {
+                       value -= i * j;
+                   }
+               }
             }
         }
         return value;
@@ -79,16 +95,19 @@ public class NicePlayer extends Player {
             nextMove.move = move;
             if (bestMove == null || nextMove.value > bestMove.value) bestMove = nextMove;
             alpha = Math.max(bestMove.value, alpha);
-            if (bestMove.value >= beta) return bestMove;
+            if (alpha >= beta) {
+                bestMove.value = beta;
+                return  bestMove;
+            };
         }
-
+        bestMove.value = alpha;
         return bestMove;
     }
 
     MyMove getBestMove(Board b, Color color) {
         MyMove bestMove = getRandomMove(b, color);
         for (int depth = 1; depth <= this.depthLimit && !hasTimeEnded(); depth++) {
-            MyMove candidateMove = negamax(b, color, depth, 0, 999999);
+            MyMove candidateMove = negamax(b, color, depth, Integer.MIN_VALUE, Integer.MAX_VALUE);
             if (candidateMove.value > bestMove.value) bestMove = candidateMove;
         }
 
@@ -105,7 +124,8 @@ public class NicePlayer extends Player {
         this.boardSize = board.getSize();
     }
 
-    private void assignTimeStop() {
+    private void assignTime() {
+        this.timeStart = System.currentTimeMillis();
         this.timeStop = getTime();
     }
 
@@ -113,12 +133,10 @@ public class NicePlayer extends Player {
     public Move nextMove(Board b) {
         this.assignBoardSize(b);
         this.assignColors();
-        this.assignTimeStop();
-
-        List<MoveMove> myMoveMoves = b.getMovesFor(myColor).stream().map(move -> (MoveMove) move).collect(Collectors.toList());
+        this.assignTime();
 
         MyMove nextMove = getBestMove(b, this.myColor);
-
+        b.doMove(nextMove.move);
         return nextMove.move;
     }
 }
