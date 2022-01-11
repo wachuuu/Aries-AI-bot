@@ -98,8 +98,9 @@ public class NicePlayer extends Player {
             if (alpha >= beta) {
                 bestMove.value = beta;
                 return  bestMove;
-            };
+            }
         }
+        assert bestMove != null;
         bestMove.value = alpha;
         return bestMove;
     }
