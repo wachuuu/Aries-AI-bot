@@ -89,6 +89,7 @@ public class NicePlayer extends Player {
         for (Move move : nextMoves) {
             b.doMove(move);
             MyMove nextMove = negamax(b, nextColor,depth-1, -beta, -alpha);
+            if (nextMove.value == null) continue;
             nextMove.value *= -1;
             nextMove.move = move;
             b.undoMove(move);
@@ -106,7 +107,11 @@ public class NicePlayer extends Player {
 
     MyMove getBestMove(Board b, Color color) {
         MyMove bestMove = getRandomMove(b, color);
-        bestMove = negamax(b, color, this.depthLimit, Integer.MIN_VALUE, Integer.MAX_VALUE);
+        for (int depth = 1; depth <= this.depthLimit && !hasTimeEnded(); depth++) {
+            MyMove candidateMove = negamax(b, color, depth, Integer.MIN_VALUE, Integer.MAX_VALUE);
+            if (candidateMove.value > bestMove.value) bestMove = candidateMove;
+        }
+
         System.out.println("("+bestMove.value+")\t"+bestMove.move);
         return bestMove;
     }
@@ -121,6 +126,7 @@ public class NicePlayer extends Player {
     public Move nextMove(Board b) {
         assignTime();
         MyMove nextMove = getBestMove(b, getColor());
+        b.doMove(nextMove.move);
         return nextMove.move;
     }
 }
