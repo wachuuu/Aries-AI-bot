@@ -77,15 +77,9 @@ public class NicePlayer extends Player {
                    value -= 1000;
                    if (color == Color.PLAYER1) {
                        value -= (boardSize + 1 - i) + (boardSize + 1 - j);
-                       if ((boardSize + 1 - i) >= 5 && (boardSize + 1 - j) >= 5) {
-                           value -= 1000;
-                       }
                    }
                    if (color == Color.PLAYER2) {
                        value -= i + j;
-                       if (i >= 5 && j >= 5) {
-                           value -= 1000;
-                       }
                    }
                }
             }
