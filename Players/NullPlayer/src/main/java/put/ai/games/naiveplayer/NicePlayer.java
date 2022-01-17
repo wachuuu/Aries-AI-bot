@@ -9,11 +9,9 @@ import put.ai.games.game.Move;
 import put.ai.games.game.Player;
 import put.ai.games.game.moves.MoveMove;
 
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Random;
-import java.util.stream.Collectors;
+
 
 class MyMove {
     Move move;
@@ -29,8 +27,7 @@ public class NicePlayer extends Player {
 
     private long timeStart;
     private long timeStop;
-    static Random random = new Random(0xCAFFE);
-    private int depthLimit = 2000000;
+    private int currentMaxDepth;
 
     @Override
     public String getName() {
@@ -49,12 +46,6 @@ public class NicePlayer extends Player {
         else {
             return Math.round((float) Math.sqrt((size - ((MoveMove) move).getDstX())*(size - ((MoveMove) move).getDstX()) + (size - ((MoveMove) move).getDstY())*(size - ((MoveMove) move).getDstY())));
         }
-    }
-
-    MyMove getRandomMove(Board b, Color color) {
-        List<Move> moves = b.getMovesFor(color);
-        Move move = moves.get(random.nextInt(moves.size()));
-        return new MyMove(move, getMoveValue(b, color));
     }
 
     Integer getMoveValue(Board b, Color color) {
@@ -94,23 +85,18 @@ public class NicePlayer extends Player {
         nextMoves.sort(Comparator.comparingInt((Move move) -> estimateGoalDistance(b, move, color)));
 
         if (b.getWinner(color) == color) {
-            System.out.println("i am winning "+color+"\tdepth "+depth);
-            return new MyMove(null, 1000000000 - + (1000000000/(depth+1)));
+            return new MyMove(null, (1000000000 - (100*(currentMaxDepth-depth))));
         }
         if (b.getWinner(color) == nextColor) {
-            System.out.println("opponent winning "+nextColor+"\tdepth "+depth);
-            return new MyMove(null, -(1000000000 + (1000000000/(depth+1))));
+            return new MyMove(null, -(1000000000 - (100*(currentMaxDepth-depth))));
         }
         if (depth == 0) {
-//            System.out.println("end of depth");
             return new MyMove(null, getMoveValue(b, color));
         }
         if (nextMoves.isEmpty()) {
-            System.out.println("end of moves");
             return new MyMove(null, getMoveValue(b, color));
         }
         if (hasTimeEnded()) {
-            System.out.println("end of time");
             return new MyMove(null, getMoveValue(b, color));
         }
 
@@ -142,7 +128,8 @@ public class NicePlayer extends Player {
         List<Move> moves = b.getMovesFor(color);
         moves.sort(Comparator.comparingInt((Move move) -> estimateGoalDistance(b, move, color)));
         MyMove bestMove = new MyMove(moves.get(0), getMoveValue(b, color));
-        for (int depth = 1; depth <= this.depthLimit && !hasTimeEnded(); depth++) {
+        for (int depth = 1; !hasTimeEnded(); depth++) {
+            this.currentMaxDepth = depth;
             MyMove candidateMove = negamax(b, color, depth, Integer.MIN_VALUE, Integer.MAX_VALUE);
             if (candidateMove.value > bestMove.value) bestMove = candidateMove;
         }
