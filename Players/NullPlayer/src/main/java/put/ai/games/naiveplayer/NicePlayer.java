@@ -30,7 +30,7 @@ public class NicePlayer extends Player {
     private long timeStart;
     private long timeStop;
     static Random random = new Random(0xCAFFE);
-    private int depthLimit = 10;
+    private int depthLimit = 2000000;
 
     @Override
     public String getName() {
@@ -60,7 +60,8 @@ public class NicePlayer extends Player {
     Integer getMoveValue(Board b, Color color) {
         int boardSize = b.getSize();
         int value = 0;
-        if (b.getWinner(color) == color) return Integer.MAX_VALUE;
+        if (b.getWinner(color) == color) return 1000000000;
+        if (b.getWinner(color) == getOpponent(color)) return -1000000000;
 
         for (int i = 1; i <= boardSize; i++) {
             for (int j = 1; j <= boardSize; j++) {
@@ -92,6 +93,14 @@ public class NicePlayer extends Player {
         List<Move> nextMoves = b.getMovesFor(color);
         nextMoves.sort(Comparator.comparingInt((Move move) -> estimateGoalDistance(b, move, color)));
 
+        if (b.getWinner(color) == color) {
+            System.out.println("i am winning "+color+"\tdepth "+depth);
+            return new MyMove(null, 1000000000 - + (1000000000/(depth+1)));
+        }
+        if (b.getWinner(color) == nextColor) {
+            System.out.println("opponent winning "+nextColor+"\tdepth "+depth);
+            return new MyMove(null, -(1000000000 + (1000000000/(depth+1))));
+        }
         if (depth == 0) {
 //            System.out.println("end of depth");
             return new MyMove(null, getMoveValue(b, color));
@@ -101,26 +110,19 @@ public class NicePlayer extends Player {
             return new MyMove(null, getMoveValue(b, color));
         }
         if (hasTimeEnded()) {
-//            System.out.println("end of time");
+            System.out.println("end of time");
             return new MyMove(null, getMoveValue(b, color));
         }
-        if (b.getWinner(color) == color) {
-            System.out.println("i am winning "+color);
-            return new MyMove(null, Integer.MAX_VALUE);
-        }
-        if (b.getWinner(color) == nextColor) {
-            System.out.println("opponent winning "+nextColor);
-            return new MyMove(null, Integer.MIN_VALUE);
-        }
 
-        MyMove bestMove = new MyMove(null, Integer.MIN_VALUE);
+
+        MyMove bestMove = new MyMove(null, -Integer.MAX_VALUE);
         for (Move move : nextMoves) {
             b.doMove(move);
             MyMove nextMove = negamax(b, nextColor,depth-1, -beta, -alpha);
             if (nextMove.value == null) continue;
+            b.undoMove(move);
             nextMove.value *= -1;
             nextMove.move = move;
-            b.undoMove(move);
 
             if (nextMove.value > bestMove.value) {
                 bestMove.move = nextMove.move;
@@ -128,8 +130,7 @@ public class NicePlayer extends Player {
             }
             if (bestMove.value > alpha) alpha = bestMove.value;
             if (alpha >= beta) {
-                bestMove.value = beta;
-                return  bestMove;
+                break;
             }
         }
         bestMove.value = alpha;
